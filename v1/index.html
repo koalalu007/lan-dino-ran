@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LAN Dino</title>
+<style>
+  body{margin:0;background:#f7f7f7;font-family:sans-serif;text-align:center}
+  canvas{background:#fff;border:1px solid #ccc;max-width:100%;touch-action:manipulation}
+</style></head>
+<body>
+<h3>LAN Dino — Space / ↑ / tap to jump</h3>
+<canvas id="c" width="800" height="300"></canvas>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const GROUND = 250;
+let myId = null, state = { players: {}, obstacles: [] };
+
+const ws = new WebSocket(`ws://${location.host}`);
+ws.onmessage = e => {
+  const m = JSON.parse(e.data);
+  if (m.t === 'hello') {
+    myId = m.id;
+    const n = prompt('Your name?'); if (n) ws.send(JSON.stringify({ t: 'name', name: n }));
+  } else if (m.t === 'state') state = m;
+};
+
+const jump = () => ws.readyState === 1 && ws.send(JSON.stringify({ t: 'jump' }));
+addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); } });
+cv.addEventListener('pointerdown', jump);
+
+function draw() {
+  ctx.clearRect(0, 0, 800, 300);
+  ctx.fillStyle = '#555'; ctx.fillRect(0, GROUND, 800, 2);
+
+  ctx.fillStyle = '#333';
+  for (const o of state.obstacles) ctx.fillRect(o.x, GROUND - o.h, o.w, o.h);
+
+  let row = 0;
+  for (const [id, p] of Object.entries(state.players)) {
+    ctx.globalAlpha = p.alive ? (id == myId ? 1 : 0.6) : 0.2;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(50, GROUND - 36 - p.y, 30, 36);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000'; ctx.font = '14px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(`${id == myId ? '▶ ' : ''}${p.name}: ${Math.floor(p.score)}${p.alive ? '' : ' ✖'}`, 10, 20 + row++ * 18);
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body></html>
